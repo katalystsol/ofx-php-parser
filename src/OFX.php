@@ -259,7 +259,7 @@ class OFX
      * @param SimpleXMLElement|null $xml
      * @return null|AccountInfo[]
      */
-    private static function parseAccountInfo(SimpleXMLElement $xml = null): ?array
+    private static function parseAccountInfo(?SimpleXMLElement $xml = null): ?array
     {
         if ($xml === null || ! isset($xml->ACCTINFO)) {
             return null;
