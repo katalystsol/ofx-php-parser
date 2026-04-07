@@ -1,5 +1,5 @@
 # OFX PHP Parser
-This project consists of a PHP parser for OFX (Open Financial Exchange) files, implemented using PHP 8.3+. Our aim is to make the process of importing OFX files as straightforward and hassle-free as possible.
+This project consists of a PHP parser for OFX (Open Financial Exchange) files, implemented using PHP 8.4+. Our aim is to make the process of importing OFX files as straightforward and hassle-free as possible.
 
 [![Build Status](https://scrutinizer-ci.com/g/kalisport-com/ofx-php-parser/badges/build.png?b=main)](https://scrutinizer-ci.com/g/kalisport-com/ofx-php-parser/build-status/main)
 [![Latest Stable Version](https://img.shields.io/github/v/release/kalisport-com/ofx-php-parser.svg)](https://packagist.org/packages/kalisport/ofx-php-parser)
