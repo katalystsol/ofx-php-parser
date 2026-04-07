@@ -13,7 +13,7 @@ This project consists of a PHP parser for OFX (Open Financial Exchange) files, i
 Simply require the package using [Composer](https://getcomposer.org/):
 
 ```bash
-$ composer require kalisport/ofx-php-parser
+$ composer require katalystsolutions/ofx-php-parser
 ```
 
 ## Usage
