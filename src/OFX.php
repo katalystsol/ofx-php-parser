@@ -25,12 +25,13 @@ class OFX
     {
         // Normalize OFX into a SimpleXML object
         $xml = OFXUtils::normalizeOfx($ofxData);
+
         if ($xml === false) {
             return null;
         }
 
-        $signOn = self::parseSignOn($xml->SIGNONMSGSRSV1->SONRS);
-        $accountInfo = self::parseAccountInfo($xml->SIGNUPMSGSRSV1->ACCTINFOTRNRS);
+        $signOn       = self::parseSignOn($xml->SIGNONMSGSRSV1->SONRS);
+        $accountInfo  = self::parseAccountInfo($xml->SIGNUPMSGSRSV1->ACCTINFOTRNRS);
         $bankAccounts = [];
 
         // Parse bank accounts
@@ -112,6 +113,7 @@ class OFX
     {
         // Remove milliseconds if present
         $dateString = preg_replace('/\.\d+/', '', $dateString) ?? $dateString;
+        $dateString = preg_replace('/\[0:GMT]/', '', $dateString) ?? $dateString;
 
         // Extract offset from patterns like [+2:CEST] or [-5:EST]
         $offset = null;
@@ -123,10 +125,14 @@ class OFX
             $dateString = preg_replace('/\[[^\]]+\]/', '', $dateString) ?? $dateString;
         }
 
-        $dateTime = new DateTime($dateString, new DateTimeZone('UTC'));
+        try {
+            $dateTime = new DateTime($dateString, new DateTimeZone('UTC'));
 
-        if ($offset !== null) {
-            $dateTime->setTimezone(new DateTimeZone($offset));
+            if ($offset !== null) {
+                $dateTime->setTimezone(new DateTimeZone($offset));
+            }
+        } catch (Exception $e) {
+            throw new Exception("Failed to parse date string: {$dateString}", 0, $e);
         }
 
         return $dateTime;
