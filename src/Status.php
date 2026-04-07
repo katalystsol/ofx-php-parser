@@ -1,11 +1,11 @@
 <?php
 
-namespace Kalisport\OFX;
+namespace KatalystSolutions\OFX;
 
 class Status
 {
     /**
-     * @var string[]
+     * @var array<string, string>
      */
     private static array $codes = [
         '0'       => 'Success',
@@ -16,26 +16,11 @@ class Status
         '15502'   => 'USERPASS Lockout'
     ];
 
-    /**
-     * @var string
-     */
-    public string $code;
-
-    /**
-     * @var string
-     */
-    public string $severity;
-
-    /**
-     * @var string
-     */
-    public string $message;
-
-    public function __construct(string $code, string $severity, string $message)
-    {
-        $this->code = $code;
-        $this->severity = $severity;
-        $this->message = $message;
+    public function __construct(
+        public string $code,
+        public string $severity,
+        public string $message,
+    ) {
     }
 
     /**
@@ -46,6 +31,7 @@ class Status
     public function codeDescription(): string
     {
         $code = $this->code;
+
         return array_key_exists($code, self::$codes) ? self::$codes[$code] : '';
     }
 }

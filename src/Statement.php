@@ -1,36 +1,16 @@
 <?php
 
-namespace Kalisport\OFX;
+namespace KatalystSolutions\OFX;
 
 use DateTime;
 
 class Statement
 {
-    /**
-     * @var string
-     */
-    public string $currency;
-
-    /**
-     * @var Transaction[]
-     */
-    public array $transactions;
-
-    /**
-     * @var DateTime
-     */
-    public DateTime $startDate;
-
-    /**
-     * @var DateTime
-     */
-    public DateTime $endDate;
-
-    public function __construct(string $currency, array $transactions, DateTime $startDate, DateTime $endDate)
-    {
-        $this->currency = $currency;
-        $this->transactions = $transactions;
-        $this->startDate = $startDate;
-        $this->endDate = $endDate;
+    public function __construct(
+        public string $currency,
+        public array $transactions,
+        public DateTime $startDate,
+        public DateTime $endDate,
+    ) {
     }
 }

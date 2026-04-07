@@ -1,22 +1,10 @@
 <?php
 
-namespace Kalisport\OFX;
+namespace KatalystSolutions\OFX;
 
 class AccountInfo
 {
-    /**
-     * @var string $description The account description
-     */
-    public string $description;
-
-    /**
-     * @var string $number The account number.
-     */
-    public string $number;
-
-    public function __construct(string $description, string $number)
+    public function __construct(public string $description, public string $number)
     {
-        $this->description = $description;
-        $this->number = $number;
     }
 }

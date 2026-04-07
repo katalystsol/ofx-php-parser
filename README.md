@@ -23,7 +23,7 @@ This project primarily revolves around the `OFX` class in the `Kalisport\OFX` na
 
 require 'vendor/autoload.php';
 
-use Kalisport\OFX\OFX;
+use KatalystSolutions\OFX\OFX;
 
 try {
     // Load the OFX data

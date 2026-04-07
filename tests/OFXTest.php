@@ -1,7 +1,7 @@
 <?php
 
+use KatalystSolutions\OFX\OFX;
 use PHPUnit\Framework\TestCase;
-use Kalisport\OFX\OFX;
 
 class OFXTest extends TestCase
 {
@@ -12,7 +12,7 @@ class OFXTest extends TestCase
      */
     public function testMultipleAccountsXML()
     {
-        $filePath = $this->ofxTestFilesDir . '/ofx-multiple-accounts-xml.ofx';
+        $filePath   = $this->ofxTestFilesDir . '/ofx-multiple-accounts-xml.ofx';
         $ofxContent = file_get_contents($filePath);
 
         $parsedData = OFX::parse($ofxContent);

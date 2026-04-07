@@ -1,6 +1,6 @@
 <?php
 
-namespace Kalisport\OFX;
+namespace KatalystSolutions\OFX;
 
 use DateTime;
 use DateTimeZone;
@@ -63,9 +63,9 @@ class OFX
      */
     protected static function parseSignOn(SimpleXMLElement $xml): SignOn
     {
-        $status = self::parseStatus($xml->STATUS);
-        $dateTime = self::parseDate((string) $xml->DTSERVER);
-        $language = (string) $xml->LANGUAGE;
+        $status    = self::parseStatus($xml->STATUS);
+        $dateTime  = self::parseDate((string)$xml->DTSERVER);
+        $language  = (string)$xml->LANGUAGE;
         $institute = self::parseInstitute($xml->FI);
 
         return new SignOn($status, $dateTime, $language, $institute);
@@ -80,7 +80,7 @@ class OFX
     protected static function parseInstitute(SimpleXMLElement $xml): Institute
     {
         $name = (string) $xml->ORG;
-        $id = (string) $xml->FID;
+        $id   = (string) $xml->FID;
 
         return new Institute($id, $name);
     }
@@ -93,9 +93,9 @@ class OFX
      */
     protected static function parseStatus(SimpleXMLElement $xml): Status
     {
-        $code = (string) $xml->CODE;
+        $code     = (string) $xml->CODE;
         $severity = (string) $xml->SEVERITY;
-        $message = (string) $xml->MESSAGE;
+        $message  = (string) $xml->MESSAGE;
 
         return new Status($code, $severity, $message);
     }
@@ -115,14 +115,16 @@ class OFX
 
         // Extract offset from patterns like [+2:CEST] or [-5:EST]
         $offset = null;
+
         if (preg_match('/\[(?<sign>[+-])(?<hh>\d{1,2})(?::[A-Z]{2,5})?\]/', $dateString, $matches)) {
-            $sign = $matches['sign'] === '-' ? '-' : '+';
-            $hh = str_pad($matches['hh'], 2, '0', STR_PAD_LEFT);
-            $offset = "{$sign}{$hh}:00";
+            $sign       = $matches['sign'] === '-' ? '-' : '+';
+            $hh         = str_pad($matches['hh'], 2, '0', STR_PAD_LEFT);
+            $offset     = "{$sign}{$hh}:00";
             $dateString = preg_replace('/\[[^\]]+\]/', '', $dateString) ?? $dateString;
         }
 
         $dateTime = new DateTime($dateString, new DateTimeZone('UTC'));
+
         if ($offset !== null) {
             $dateTime->setTimezone(new DateTimeZone($offset));
         }
@@ -141,10 +143,10 @@ class OFX
     private static function parseBankAccount(string $uuid, SimpleXMLElement $xml): BankAccount
     {
         return self::parseAccountFromNode(
-            $uuid,
-            $xml,
-            $xml,
-            $xml->BANKACCTFROM
+            uuid: $uuid,
+            root: $xml,
+            stmtRoot: $xml,
+            acctNode: $xml->BANKACCTFROM
         );
     }
 
@@ -158,14 +160,14 @@ class OFX
      */
     private static function parseCreditAccount(string $uuid, SimpleXMLElement $xml): BankAccount
     {
-        $stmt = $xml->CCSTMTRS ?? $xml;
-        $node = isset($stmt->CCACCTFROM) ? $stmt->CCACCTFROM : $stmt->BANKACCTFROM;
+        $stmtRoot = $xml->CCSTMTRS ?? $xml;
+        $acctNode = isset($stmtRoot->CCACCTFROM) ? $stmtRoot->CCACCTFROM : $stmtRoot->BANKACCTFROM;
 
         return self::parseAccountFromNode(
             $uuid,
             $xml,
-            $stmt,
-            $node
+            $stmtRoot,
+            $acctNode
         );
     }
 
@@ -186,12 +188,12 @@ class OFX
         SimpleXMLElement $acctNode
     ): BankAccount {
         $accountNumber = (string) $acctNode->ACCTID;
-        $accountType = (string) $acctNode->ACCTTYPE;
-        $agencyNumber = (string) $acctNode->BRANCHID;
+        $accountType   = (string) $acctNode->ACCTTYPE;
+        $agencyNumber  = (string) $acctNode->BRANCHID;
         $routingNumber = (string) $acctNode->BANKID;
-        $balance = (float) $stmtRoot->LEDGERBAL->BALAMT;
-        $balanceDate = self::parseDate((string) $stmtRoot->LEDGERBAL->DTASOF);
-        $statement = self::parseStatement($root);
+        $balance       = (float) $stmtRoot->LEDGERBAL->BALAMT;
+        $balanceDate   = self::parseDate((string) $stmtRoot->LEDGERBAL->DTASOF);
+        $statement     = self::parseStatement($root);
 
         return new BankAccount(
             $accountNumber,
@@ -214,9 +216,9 @@ class OFX
      */
     private static function parseStatement(SimpleXMLElement $xml): Statement
     {
-        $currency = (string) $xml->CURDEF;
+        $currency  = (string) $xml->CURDEF;
         $startDate = self::parseDate((string) $xml->BANKTRANLIST->DTSTART);
-        $endDate = self::parseDate((string) $xml->BANKTRANLIST->DTEND);
+        $endDate   = self::parseDate((string) $xml->BANKTRANLIST->DTEND);
 
         $transactions = [];
         foreach ($xml->BANKTRANLIST->STMTTRN as $t) {
@@ -228,11 +230,11 @@ class OFX
                 $userDate = self::parseDate((string) $t->DTUSER);
             }
 
-            $amount = (float) $t->TRNAMT;
+            $amount   = (float) $t->TRNAMT;
             $uniqueId = (string) $t->FITID;
-            $name = rtrim((string) $t->NAME);
-            $memo = rtrim((string) $t->MEMO);
-            $sic = (string) $t->SIC;
+            $name     = rtrim((string) $t->NAME);
+            $memo     = rtrim((string) $t->MEMO);
+            $sic      = (string) $t->SIC;
             $checkNumber = (string) $t->CHECKNUM;
 
             $transactions[] = new Transaction(
@@ -255,11 +257,11 @@ class OFX
      * Parses account information section (ACCTINFO).
      *
      * @param SimpleXMLElement|null $xml
-     * @return array|null
+     * @return null|AccountInfo[]
      */
     private static function parseAccountInfo(SimpleXMLElement $xml = null): ?array
     {
-        if ($xml === null || !isset($xml->ACCTINFO)) {
+        if ($xml === null || ! isset($xml->ACCTINFO)) {
             return null;
         }
 

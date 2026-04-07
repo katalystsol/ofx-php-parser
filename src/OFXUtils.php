@@ -1,6 +1,6 @@
 <?php
 
-namespace Kalisport\OFX;
+namespace KatalystSolutions\OFX;
 
 use RuntimeException;
 use SimpleXMLElement;
@@ -15,9 +15,9 @@ class OFXUtils
      * - Parses into SimpleXML with internal libxml error handling
      *
      * @param string $ofxContent Raw OFX content
-     * @return string|false|SimpleXMLElement SimpleXMLElement on success, false on failure
+     * @return false|SimpleXMLElement SimpleXMLElement on success, false on failure
      */
-    public static function normalizeOfx(string $ofxContent): string|false|SimpleXMLElement
+    public static function normalizeOfx(string $ofxContent): false|SimpleXMLElement
     {
         // Normalize line endings to "\n" (previous code used literal '\r\n' which did nothing)
         $ofxContent = str_replace(["\r\n", "\r"], "\n", $ofxContent);
@@ -25,25 +25,29 @@ class OFXUtils
         // Locate the <OFX> root and split header/body.
         // Header is ASCII by spec, so it can be parsed without prior re-encoding.
         $sgmlStart = stripos($ofxContent, '<OFX>');
+
         if ($sgmlStart === false) {
             // No <OFX> tag found: invalid input
             return false;
         }
 
         $ofxHeaderRaw = trim(substr($ofxContent, 0, $sgmlStart));
-        $ofxBodyRaw = trim(substr($ofxContent, $sgmlStart));
-        $header = self::parseHeader($ofxHeaderRaw);
+        $ofxBodyRaw   = trim(substr($ofxContent, $sgmlStart));
+        $header       = self::parseHeader($ofxHeaderRaw);
 
         // Determine declared encoding from header (OFX v1 and v2 conventions)
         // Typical keys: ENCODING, CHARSET
         $declared = null;
+
         if (!empty($header['ENCODING'])) {
             // OFX v1: ENCODING:USASCII (with CHARSET:1252 etc.)
             $enc = strtoupper((string) $header['ENCODING']);
+
             if ($enc === 'UTF-8' || $enc === 'UTF8') {
                 $declared = 'UTF-8';
             }
         }
+
         if ($declared === null && !empty($header['CHARSET'])) {
             $cs = strtoupper((string) $header['CHARSET']);
             if ($cs === 'UTF-8' || $cs === 'UTF8') {
@@ -59,18 +63,24 @@ class OFXUtils
         // - If content is already valid UTF-8 with multi-byte chars, DO NOT reconvert (some banks lie in header).
         // - Else, if header declares a non-UTF8 encoding, convert once to UTF-8.
         // - Else leave as-is (ASCII often).
-        $looksUtf8 = mb_check_encoding($ofxContent, 'UTF-8') && (bool) preg_match('/[\xC2-\xF4]/', $ofxContent);
+        $looksUtf8 = mb_check_encoding($ofxContent, 'UTF-8')
+            && (bool) preg_match('/[\xC2-\xF4]/', $ofxContent);
+
         if (!$looksUtf8 && $declared !== null && $declared !== 'UTF-8') {
             $converted = @mb_convert_encoding($ofxContent, 'UTF-8', $declared);
+
             if (is_string($converted) && $converted !== '') {
                 $ofxContent = $converted;
+
                 // Update the split parts after conversion to keep indices consistent
                 $sgmlStart = stripos($ofxContent, '<OFX>');
+
                 if ($sgmlStart === false) {
                     return false;
                 }
+
                 $ofxHeaderRaw = trim(substr($ofxContent, 0, $sgmlStart));
-                $ofxBodyRaw = trim(substr($ofxContent, $sgmlStart));
+                $ofxBodyRaw   = trim(substr($ofxContent, $sgmlStart));
             }
         }
 
@@ -78,16 +88,13 @@ class OFXUtils
         // Otherwise it's SGML-style OFX v1 and must be converted.
         $isXmlHeader = preg_match('/^<\?xml/i', $ofxHeaderRaw) === 1;
 
-        if ($isXmlHeader) {
-            $ofxXml = $ofxBodyRaw;
-        } else {
-            // SGML to XML conversion for OFX v1
-            $ofxXml = self::convertSgmlToXml($ofxBodyRaw);
-        }
+        // SGML to XML conversion for OFX v1 if needed
+        $ofxXml = $isXmlHeader ? $ofxBodyRaw : self::convertSgmlToXml($ofxBodyRaw);
 
         // Parse as XML with libxml internal error capture
         libxml_clear_errors();
         libxml_use_internal_errors(true);
+
         $xml = simplexml_load_string($ofxXml);
 
         if ($xml === false) {
@@ -127,14 +134,18 @@ class OFXUtils
             if ($text !== '') {
                 // Tokenize on spaces, each token like KEY="VALUE" or KEY=VALUE
                 $tokens = preg_split('/\s+/', $text);
+
                 foreach ($tokens as $token) {
                     if ($token === '') {
                         continue;
                     }
+
                     $parts = explode('=', $token, 2);
+
                     if (count($parts) === 2) {
                         $key = trim($parts[0]);
                         $val = trim($parts[1], " \t\n\r\0\x0B\"'");
+
                         if ($key !== '') {
                             $header[$key] = $val;
                         }
@@ -147,13 +158,17 @@ class OFXUtils
 
         // Line-based header (OFX v1)
         $lines = preg_split('/\n+/', $text) ?: [];
+
         foreach ($lines as $line) {
             $line = trim($line);
+
             if ($line === '') {
                 continue;
             }
+
             // KEY:VALUE
             $parts = explode(':', $line, 2);
+
             if (count($parts) === 2) {
                 $key = trim($parts[0]);
                 $val = trim($parts[1]);
@@ -187,13 +202,14 @@ class OFXUtils
             $line = trim(self::closeUnclosedXmlTags($line)) . "\n";
 
             // Match tags like <TAG> or </TAG>
-            if (!preg_match('/^<(\/?[A-Za-z0-9.]+)>$/', trim($line), $m)) {
+            if (! preg_match('/^<(\/?[A-Za-z0-9.]+)>$/', trim($line), $m)) {
                 continue;
             }
 
             // Closing tag: unwind stack until matching opening tag is found
             if ($m[1][0] === '/') {
                 $tag = substr($m[1], 1);
+
                 while (($last = array_pop($stack)) && $last[1] !== $tag) {
                     $lines[$last[0]] = "<{$last[1]}/>\n";
                 }
@@ -202,6 +218,7 @@ class OFXUtils
                 $stack[] = [$i, $m[1]];
             }
         }
+
         unset($line); // break reference
 
         // Close any remaining open tags as self-closing

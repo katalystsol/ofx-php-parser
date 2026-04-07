@@ -1,6 +1,6 @@
 <?php
 
-namespace Kalisport\OFX;
+namespace KatalystSolutions\OFX;
 
 use DateTime;
 
@@ -26,95 +26,26 @@ class Transaction
         'OTHER' => 'Other',
     ];
 
-    /**
-     * @var string
-     */
-    public string $type;
-
-    /**
-     * @var DateTime
-     */
-    public DateTime $date;
-
-    /**
-     * Date the user initiated the transaction, if known
-     * @var ?DateTime
-     */
-    public ?DateTime $userInitiatedDate;
-
-    /**
-     * @var float
-     */
-    public float $amount;
-
-    /**
-     * @var string
-     */
-    public string $uniqueId;
-
-    /**
-     * @var string
-     */
-    public string $name;
-
-    /**
-     * @var string
-     */
-    public string $memo;
-
-    /**
-     * @var string
-     */
-    public string $sic;
-
-    /**
-     * @var string
-     */
-    public string $checkNumber;
-
-    /**
-     * Transaction constructor.
-     *
-     * @param string $type
-     * @param float $amount
-     * @param DateTime $date
-     * @param ?DateTime $userInitiatedDate
-     * @param string $uniqueId
-     * @param string $name
-     * @param string $memo
-     * @param string $sic
-     * @param string $checkNumber
-     */
     public function __construct(
-        string $type,
-        float $amount,
-        DateTime $date,
-        ?DateTime $userInitiatedDate,
-        string $uniqueId,
-        string $name,
-        string $memo,
-        string $sic,
-        string $checkNumber,
+        public string $type,
+        public float $amount,
+        public DateTime $date,
+        public ?DateTime $userInitiatedDate,
+        public string $uniqueId,
+        public string $name,
+        public string $memo,
+        public string $sic,
+        public string $checkNumber,
     ) {
-        $this->type = $type;
-        $this->amount = $amount;
-        $this->date = $date;
-        $this->userInitiatedDate = $userInitiatedDate;
-        $this->uniqueId = $uniqueId;
-        $this->name = $name;
-        $this->memo = $memo;
-        $this->sic = $sic;
-        $this->checkNumber = $checkNumber;
     }
 
     /**
      * Get the associated type description
-     *
-     * @return string
      */
     public function typeDescription(): string
     {
         $type = $this->type;
+
         return array_key_exists($type, self::$types) ? self::$types[$type] : '';
     }
 }
