@@ -243,6 +243,14 @@ class OFXUtils
     {
         $line = trim($line);
 
+        $line = preg_replace_callback(
+            pattern: '/<([\w.]+)>([^<\r\n]+)/',
+            callback: function ($matches) {
+                return "<{$matches[1]}>{$matches[2]}</{$matches[1]}>";
+            },
+            subject: $line,
+        );
+
         // Special-case discovered: empty MEMO line should be closed
         if (preg_match('/^<MEMO>$/', $line) === 1) {
             return '<MEMO></MEMO>';
