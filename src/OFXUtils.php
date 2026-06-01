@@ -24,7 +24,7 @@ class OFXUtils
 
         // Locate the <OFX> root and split header/body.
         // Header is ASCII by spec, so it can be parsed without prior re-encoding.
-        $sgmlStart = stripos($ofxContent, '<OFX>');
+        $sgmlStart = self::findOfxRootStart($ofxContent);
 
         if ($sgmlStart === false) {
             // No <OFX> tag found: invalid input
@@ -73,7 +73,7 @@ class OFXUtils
                 $ofxContent = $converted;
 
                 // Update the split parts after conversion to keep indices consistent
-                $sgmlStart = stripos($ofxContent, '<OFX>');
+                $sgmlStart = self::findOfxRootStart($ofxContent);
 
                 if ($sgmlStart === false) {
                     return false;
@@ -89,7 +89,9 @@ class OFXUtils
         $isXmlHeader = preg_match('/^<\?xml/i', $ofxHeaderRaw) === 1;
 
         // SGML to XML conversion for OFX v1 if needed
-        $ofxXml = $isXmlHeader ? $ofxBodyRaw : self::convertSgmlToXml($ofxBodyRaw);
+        $ofxXml = $isXmlHeader
+            ? self::extractOfxRoot($ofxBodyRaw)
+            : self::convertSgmlToXml($ofxBodyRaw);
 
         // Parse as XML with libxml internal error capture
         libxml_clear_errors();
@@ -104,6 +106,26 @@ class OFXUtils
         }
 
         return $xml;
+    }
+
+    private static function findOfxRootStart(string $ofxContent): false|int
+    {
+        if (preg_match('/<OFX(?:\s[^>]*)?>/i', $ofxContent, $matches, PREG_OFFSET_CAPTURE) !== 1) {
+            return false;
+        }
+
+        return $matches[0][1];
+    }
+
+    private static function extractOfxRoot(string $ofxBody): string
+    {
+        $ofxEnd = strripos($ofxBody, '</OFX>');
+
+        if ($ofxEnd === false) {
+            return trim($ofxBody);
+        }
+
+        return trim(substr($ofxBody, 0, $ofxEnd + strlen('</OFX>')));
     }
 
     /**
@@ -191,83 +213,110 @@ class OFXUtils
      */
     private static function convertSgmlToXml(string $sgml): string
     {
-        // Escape bare "&" to "&amp;" while keeping existing entities intact
-        $sgml = (string) preg_replace('/&(?!#?[a-z0-9]+;)/i', '&amp;', $sgml);
+        $tokens = preg_split(
+            '/(<\/?[A-Za-z0-9.]+\/?>)/',
+            $sgml,
+            -1,
+            PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY
+        );
 
-        $lines = explode("\n", $sgml);
+        if ($tokens === false) {
+            return $sgml;
+        }
+
+        $xml = '';
         $stack = [];
 
-        foreach ($lines as $i => &$line) {
-            // Normalize each line and try to autoclose common unclosed content tags
-            $line = trim(self::closeUnclosedXmlTags($line)) . "\n";
+        for ($index = 0; $index < count($tokens); $index++) {
+            $token = trim($tokens[$index]);
 
-            // Match tags like <TAG> or </TAG>
-            if (! preg_match('/^<(\/?[A-Za-z0-9.]+)>$/', trim($line), $m)) {
+            if ($token === '') {
                 continue;
             }
 
-            // Closing tag: unwind stack until matching opening tag is found
-            if ($m[1][0] === '/') {
-                $tag = substr($m[1], 1);
+            if (preg_match('/^<([A-Za-z0-9.]+)\/>$/', $token) === 1) {
+                $xml .= $token;
 
-                while (($last = array_pop($stack)) && $last[1] !== $tag) {
-                    $lines[$last[0]] = "<{$last[1]}/>\n";
+                continue;
+            }
+
+            if (preg_match('/^<\/([A-Za-z0-9.]+)>$/', $token, $matches) === 1) {
+                $xml .= self::closeTagsUntil($matches[1], $stack);
+
+                if ($matches[1] === 'OFX' && $stack === []) {
+                    break;
                 }
-            } else {
-                // Opening tag: push to stack
-                $stack[] = [$i, $m[1]];
+
+                continue;
+            }
+
+            if (preg_match('/^<([A-Za-z0-9.]+)>$/', $token, $matches) === 1) {
+                $xml .= $token;
+                $stack[] = $matches[1];
+
+                continue;
+            }
+
+            $xml .= self::escapeXmlValue($token);
+
+            if (self::nextTokenClosesCurrentTag($tokens, $index, end($stack))) {
+                continue;
+            }
+
+            if ($tag = array_pop($stack)) {
+                $xml .= "</{$tag}>";
             }
         }
 
-        unset($line); // break reference
-
-        // Close any remaining open tags as self-closing
-        while ($last = array_pop($stack)) {
-            $lines[$last[0]] = "<{$last[1]}/>\n";
+        while ($tag = array_pop($stack)) {
+            $xml .= "</{$tag}>";
         }
 
-        // Return compacted XML string
-        return implode("", array_map('trim', $lines));
+        return $xml;
     }
 
     /**
-     * Close common unclosed tags that carry inline content on the same line.
-     * Example:
-     *   "<NAME>ACME CORP"  -> "<NAME>ACME CORP</NAME>"
-     * Special-case MEMO when tag is present with no content.
-     *
-     * @param string $line
-     * @return string
+     * @param array<int, string> $stack
      */
-    private static function closeUnclosedXmlTags(string $line): string
+    private static function closeTagsUntil(string $closingTag, array &$stack): string
     {
-        $line = trim($line);
+        $xml = '';
 
-        $line = preg_replace_callback(
-            pattern: '/<([\w.]+)>([^<\r\n]+)/',
-            callback: function ($matches) {
-                return "<{$matches[1]}>{$matches[2]}</{$matches[1]}>";
-            },
-            subject: $line,
-        );
+        while ($tag = array_pop($stack)) {
+            $xml .= "</{$tag}>";
 
-        // Special-case discovered: empty MEMO line should be closed
-        if (preg_match('/^<MEMO>$/', $line) === 1) {
-            return '<MEMO></MEMO>';
+            if ($tag === $closingTag) {
+                break;
+            }
         }
 
-        // Match: <TAG>content   (no closing on the same line)
-        // Avoid touching already-closed tags
-        if (preg_match(
-            '/^<([A-Za-z0-9.]+)>([^<]+)$/u',
-            $line,
-            $m
-        )) {
-            $tag = $m[1];
-            $content = $m[2];
-            return "<{$tag}>{$content}</{$tag}>";
+        return $xml;
+    }
+
+    private static function escapeXmlValue(string $value): string
+    {
+        return htmlspecialchars(trim($value), ENT_XML1 | ENT_COMPAT, 'UTF-8', false);
+    }
+
+    /**
+     * @param array<int, string> $tokens
+     */
+    private static function nextTokenClosesCurrentTag(array $tokens, int $currentIndex, mixed $currentTag): bool
+    {
+        if (! is_string($currentTag)) {
+            return false;
         }
 
-        return $line;
+        for ($index = $currentIndex + 1; $index < count($tokens); $index++) {
+            $token = trim($tokens[$index]);
+
+            if ($token === '') {
+                continue;
+            }
+
+            return strcasecmp($token, "</{$currentTag}>") === 0;
+        }
+
+        return false;
     }
 }
