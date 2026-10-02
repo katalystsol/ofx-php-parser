@@ -170,10 +170,10 @@ class OFX
         $acctNode = isset($stmtRoot->CCACCTFROM) ? $stmtRoot->CCACCTFROM : $stmtRoot->BANKACCTFROM;
 
         return self::parseAccountFromNode(
-            $uuid,
-            $xml,
-            $stmtRoot,
-            $acctNode
+            uuid: $uuid,
+            root: $stmtRoot,
+            stmtRoot: $stmtRoot,
+            acctNode: $acctNode,
         );
     }
 

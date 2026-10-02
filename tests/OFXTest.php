@@ -139,4 +139,29 @@ OFX;
         $this->assertCount(1, $transactions);
         $this->assertSame('Deposit', $transactions[0]->name);
     }
+
+    public function testCreditCardAccount(): void
+    {
+        $filePath = $this->ofxTestFilesDir.'/ofxdata-credit-card.ofx';
+        $ofxContent = file_get_contents($filePath);
+
+        $parsedData = OFX::parse($ofxContent);
+
+        $this->assertNotNull($parsedData);
+        $this->assertCount(1, $parsedData->bankAccounts);
+
+        $account = $parsedData->bankAccounts[0];
+
+        $this->assertSame('1234567891234567', $account->accountNumber);
+        $this->assertSame('GBP', $account->statement->currency);
+        $this->assertCount(1, $account->statement->transactions);
+
+        $transaction = $account->statement->transactions[0];
+
+        $this->assertSame('POS', $transaction->type);
+        $this->assertSame(-100.00, $transaction->amount);
+        $this->assertSame('ABCDEFGHIJ', $transaction->uniqueId);
+        $this->assertSame('VENDOR', $transaction->name);
+        $this->assertSame('2016-08-23', $transaction->date->format('Y-m-d'));
+    }
 }
